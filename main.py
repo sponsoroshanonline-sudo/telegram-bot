@@ -22,8 +22,8 @@ GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
 # Gemini Configure කිරීම
 genai.configure(api_key=GEMINI_API_KEY)
 
-# standard free model alias
-model = genai.GenerativeModel('gemini-1.5-flash')
+# Full Model Path එක භාවිත කිරීම ('models/' කෑල්ල එක්ක)
+model = genai.GenerativeModel('models/gemini-1.5-flash')
 bot = telebot.TeleBot(TELEGRAM_BOT_TOKEN)
 
 # /start Command එකට උත්තර දීම
