@@ -19,7 +19,7 @@ def run_web_server():
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
 
-# Gemini Client සහ Telegram Bot Setup කිරීම (Updated SDK)
+# Gemini Client සහ Telegram Bot Setup කිරීම
 client = genai.Client(api_key=GEMINI_API_KEY)
 bot = telebot.TeleBot(TELEGRAM_BOT_TOKEN)
 
@@ -47,9 +47,9 @@ def process_job_details(message):
         - Relevant Hashtags
         """
 
-        # අලුත් SDK එකෙන් Gemini 2.5/1.5 Models කතා කිරීම
+        # Active Model Name එක
         response = client.models.generate_content(
-            model='gemini-2.5-flash',
+            model='gemini-1.5-flash',
             contents=prompt,
         )
         ai_reply = response.text
