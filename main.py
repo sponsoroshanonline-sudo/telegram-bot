@@ -47,9 +47,9 @@ def process_job_details(message):
         - Relevant Hashtags
         """
 
-        # Gemini 2.0 Flash Model එක
+        # Gemini 1.5 Flash Model එක (Free Tier සඳහා සුදුසුම Model එක)
         response = client.models.generate_content(
-            model='gemini-2.0-flash',
+            model='gemini-1.5-flash',
             contents=prompt,
         )
         ai_reply = response.text
