@@ -47,9 +47,9 @@ def process_job_details(message):
         - Relevant Hashtags
         """
 
-        # Active Model Name එක
+        # Gemini 2.0 Flash Model එක
         response = client.models.generate_content(
-            model='gemini-1.5-flash',
+            model='gemini-2.0-flash',
             contents=prompt,
         )
         ai_reply = response.text
