@@ -12,7 +12,6 @@ def home():
     return "Bot is alive and running!"
 
 def run_web_server():
-    # Render එකෙන් දෙන PORT එක ලබාගැනීම
     port = int(os.environ.get("PORT", 10000))
     app.run(host='0.0.0.0', port=port)
 
@@ -22,7 +21,7 @@ GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
 
 # Gemini සහ Telegram Bot Setup කිරීම
 genai.configure(api_key=GEMINI_API_KEY)
-model = genai.GenerativeModel('gemini-1.5-flash')
+model = genai.GenerativeModel('gemini-pro')
 bot = telebot.TeleBot(TELEGRAM_BOT_TOKEN)
 
 # /start Command එකට උත්තර දීම
@@ -31,7 +30,7 @@ def send_welcome(message):
     bot.reply_to(message, "ආයුබෝවන්! 🇱🇰\nමම රැකියා විස්තර Post එකක් බවට පත්කරන Bot කෙනෙක්. මට Job එකේ Details එවන්න!")
 
 # සාමාන්‍ය Messages සඳහා (Gemini AI මගින් Job Post එකක් සෑදීම)
-@bot.message_handler(func=lambda message: True)
+@bot.message_handler(func=lambda message: not message.text.startswith('/'))
 def process_job_details(message):
     try:
         user_text = message.text
@@ -57,10 +56,8 @@ def process_job_details(message):
     except Exception as e:
         bot.reply_to(message, f"❌ අසාර්ථක විය: {str(e)}")
 
-# Web Server එකයි Telegram Bot එකයි එකපාර Run කිරීම
 if __name__ == "__main__":
     print("Starting Web Server...")
-    # Flask app එක වෙනම Thread එකක Start කරයි
     threading.Thread(target=run_web_server, daemon=True).start()
     
     print("Starting Telegram Bot...")
