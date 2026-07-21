@@ -44,7 +44,8 @@ def generate_job_post(user_text):
     """
 
     payload = {
-        "model": "google/gemini-2.5-flash:free",  # 100% Free OpenRouter Model
+        # 100% Guaranteed Free Permanent Model
+        "model": "meta-llama/llama-3.3-70b-instruct:free",
         "messages": [
             {"role": "user", "content": prompt}
         ]
