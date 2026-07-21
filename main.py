@@ -1,87 +1,134 @@
 import os
+import json
 import threading
 import requests
-import json
 from flask import Flask
 import telebot
+from PIL import Image, ImageDraw, ImageFont
+from gtts import gTTS
 
-# 1. Dummy Web Server (Render එක Timed out වීම වැළැක්වීමට)
+# 1. Web Server for Render Keep-Alive
 app = Flask(__name__)
 
 @app.route('/')
 def home():
-    return "Bot is alive and running!"
+    return "Bot is active!"
 
 def run_web_server():
     port = int(os.environ.get("PORT", 10000))
     app.run(host='0.0.0.0', port=port)
 
-# 2. Tokens ලබාගැනීම
+# 2. Environment Variables
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
 OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY")
 
 bot = telebot.TeleBot(TELEGRAM_BOT_TOKEN)
 
-# OpenRouter Free Model API Request
-def generate_job_post(user_text):
+# AI Script & Text Extractor (OpenRouter Gemini Free)
+def get_job_data(user_text):
     url = "https://openrouter.ai/api/v1/chat/completions"
-    
     headers = {
         "Authorization": f"Bearer {OPENROUTER_API_KEY}",
         "Content-Type": "application/json"
     }
     
     prompt = f"""
-    පහත දැක්වෙන රැකියා විස්තරය භාවිත කරල Telegram Channel එකකට සුදුසු පැහැදිලි Sinhala Job Caption එකක් සාදන්න:
-    Details: {user_text}
+    පහත Job Details භාවිත කර මෙන්න මේ JSON Format එකෙන් පමණක් Output එක දෙන්න (වෙනත් කිසිදු Text එකක් ඇතුළත් නොකරන්න):
 
-    Format Requirements:
-    - Job Title (Sinhala & English)
-    - Company / Institute Name
-    - Closing Date
-    - Details & Requirements (Bullet points)
-    - Relevant Hashtags
+    {{
+      "job_title_sinhala": "තනතුරේ නම සිංහලෙන් (කෙටියෙන්)",
+      "job_title_english": "Designation in English",
+      "company_name": "ආයතනයේ නම",
+      "closing_date": "YYYY-MM-DD",
+      "voice_script": "CapCut Voiceover එකට සුදුසු තත්පර 20ක ස්වාභාවික සිංහල විස්තරය",
+      "telegram_caption": "Telegram Post එකට සුදුසු පැහැදිලි Caption එක"
+    }}
+
+    Details: {user_text}
     """
 
     payload = {
-        # 100% Guaranteed Free Permanent Model
-        "model": "meta-llama/llama-3.3-70b-instruct:free",
-        "messages": [
-            {"role": "user", "content": prompt}
-        ]
+        "model": "google/gemini-2.0-flash-exp:free",
+        "messages": [{"role": "user", "content": prompt}]
     }
 
-    response = requests.post(url, headers=headers, data=json.dumps(payload), timeout=30)
-    
-    if response.status_code == 200:
-        result = response.json()
-        return result['choices'][0]['message']['content']
+    res = requests.post(url, headers=headers, data=json.dumps(payload), timeout=25)
+    if res.status_code == 200:
+        content = res.json()['choices'][0]['message']['content']
+        # Extract JSON
+        clean_json = content[content.find('{'):content.rfind('}')+1]
+        return json.loads(clean_json)
     else:
-        raise Exception(f"OpenRouter Error Status {response.status_code}: {response.text}")
+        raise Exception("AI API Error")
 
-# /start Command එකට උත්තර දීම
-@bot.message_handler(commands=['start', 'help'])
-def send_welcome(message):
-    bot.reply_to(message, "ආයුබෝවන්! 🇱🇰\nමම රැකියා විස්තර Post එකක් බවට පත්කරන Bot කෙනෙක්. මට Job එකේ Details එවන්න!")
+# 1:1 Image Generator (White & Navy Design)
+def generate_1by1_image(data):
+    img = Image.new('RGB', (1080, 1080), color=(255, 255, 255))
+    draw = ImageDraw.Draw(img)
+    
+    # Top Area Header Line
+    draw.rectangle([(0, 0), (1080, 50)], fill=(9, 29, 66))
+    
+    # Middle Dark Navy Box
+    draw.rectangle([(0, 540), (1080, 950)], fill=(9, 29, 66))
+    
+    # Red Separation Line
+    draw.rectangle([(0, 530), (1080, 540)], fill=(220, 38, 38))
 
-# සාමාන්‍ය Messages සඳහා Job Post එකක් සෑදීම
-@bot.message_handler(func=lambda message: not message.text.startswith('/'))
-def process_job_details(message):
+    # Red Closing Date Badge
+    draw.rectangle([(290, 840), (790, 910)], fill=(220, 38, 38))
+
+    # Basic Fonts (System Default / Basic Fallback)
     try:
-        user_text = message.text
-        bot.send_message(message.chat.id, "⏳ කරුණාකර රැඳී සිටින්න, Job Post එක නිර්මාණය වෙමින් පවතී...")
+        font_main = ImageFont.truetype("arial.ttf", 45)
+    except:
+        font_main = ImageFont.load_default()
 
-        # OpenRouter AI මගින් Text එක සෑදීම
-        ai_reply = generate_job_post(user_text)
+    # Draw Text Content
+    draw.text((540, 220), data.get('job_title_sinhala', ''), fill=(9, 29, 66), anchor="mm", font=font_main)
+    draw.text((540, 320), data.get('job_title_english', ''), fill=(9, 29, 66), anchor="mm", font=font_main)
+    draw.text((540, 680), data.get('company_name', ''), fill=(255, 255, 255), anchor="mm", font=font_main)
+    draw.text((540, 875), f"CLOSING DATE: {data.get('closing_date', 'N/A')}", fill=(255, 255, 255), anchor="mm", font=font_main)
 
-        bot.reply_to(message, ai_reply, parse_mode="Markdown")
+    path = "job_post.png"
+    img.save(path)
+    return path
+
+# Voiceover MP3 Generator
+def generate_voice(text):
+    tts = gTTS(text=text, lang='si')
+    path = "voice.mp3"
+    tts.save(path)
+    return path
+
+# Bot Command / Messages
+@bot.message_handler(commands=['start', 'help'])
+def start_msg(msg):
+    bot.reply_to(msg, "ආයුබෝවන්! 🇱🇰\nCapCut Short Video සෑදීමට අදාළ Image එක, Voiceover MP3 එක සහ Caption එක ලබාගැනීමට Job Details එවන්න!")
+
+@bot.message_handler(func=lambda msg: not msg.text.startswith('/'))
+def process_job(msg):
+    try:
+        bot.send_message(msg.chat.id, "⏳ කරුණාකර රැඳී සිටින්න, Image එක සහ Voiceover එක සෑදෙමින් පවතී...")
+        
+        # Get AI Extracted Data
+        data = get_job_data(msg.text)
+        
+        # Generate Media
+        img_path = generate_1by1_image(data)
+        audio_path = generate_voice(data.get('voice_script', msg.text))
+        
+        # Send Photo with Caption
+        with open(img_path, 'rb') as photo:
+            bot.send_photo(msg.chat.id, photo, caption=data.get('telegram_caption', ''), parse_mode="Markdown")
+            
+        # Send Audio File
+        with open(audio_path, 'rb') as audio:
+            bot.send_audio(msg.chat.id, audio, caption="🎙️ CapCut සඳහා Sinhala Voiceover MP3 එක")
 
     except Exception as e:
-        bot.reply_to(message, f"❌ අසාර්ථක විය: {str(e)}")
+        bot.reply_to(msg, f"❌ අසාර්ථක විය: {str(e)}")
 
 if __name__ == "__main__":
-    print("Starting Web Server...")
     threading.Thread(target=run_web_server, daemon=True).start()
-    
-    print("Starting Telegram Bot...")
     bot.infinity_polling()
