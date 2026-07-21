@@ -2,7 +2,7 @@ import os
 import threading
 from flask import Flask
 import telebot
-from google import genai
+import google.generativeai as genai
 
 # 1. Dummy Web Server (Render එක Timed out වීම වැළැක්වීමට)
 app = Flask(__name__)
@@ -15,12 +15,15 @@ def run_web_server():
     port = int(os.environ.get("PORT", 10000))
     app.run(host='0.0.0.0', port=port)
 
-# 2. Environment Variables වලින් Tokens ලබාගැනීම
+# 2. Environment Variables ලබාගැනීම
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
 
-# Gemini Client සහ Telegram Bot Setup කිරීම
-client = genai.Client(api_key=GEMINI_API_KEY)
+# Gemini Configure කිරීම
+genai.configure(api_key=GEMINI_API_KEY)
+
+# standard free model alias
+model = genai.GenerativeModel('gemini-1.5-flash')
 bot = telebot.TeleBot(TELEGRAM_BOT_TOKEN)
 
 # /start Command එකට උත්තර දීම
@@ -47,11 +50,7 @@ def process_job_details(message):
         - Relevant Hashtags
         """
 
-        # Gemini 1.5 Flash Model එක (Free Tier සඳහා සුදුසුම Model එක)
-        response = client.models.generate_content(
-            model='gemini-1.5-flash',
-            contents=prompt,
-        )
+        response = model.generate_content(prompt)
         ai_reply = response.text
 
         bot.reply_to(message, ai_reply, parse_mode="Markdown")
