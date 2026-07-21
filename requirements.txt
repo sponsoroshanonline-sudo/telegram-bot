@@ -1,6 +1,6 @@
 pyTelegramBotAPI
 requests
-google-generativeai
+google-genai
 moviepy
 pillow
 flask
